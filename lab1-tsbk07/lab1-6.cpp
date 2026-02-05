@@ -1,0 +1,124 @@
+// Lab 1-1.
+// This is the same as the first simple example in the course book,
+// but with a few error checks.
+// Remember to copy your file to a new on appropriate places during the lab so you keep old results.
+// Note that the files "lab1-1.frag", "lab1-1.vert" are required.
+
+#include "GL_utilities.h"
+#include "MicroGlut.h"
+#include "math.h"
+#define MAIN
+#include "LittleOBJLoader.h"
+// uses framework OpenGL
+// uses framework Cocoa
+
+// Globals
+// Data would normally be read from files
+
+Model *m;
+
+// vertex array object
+
+unsigned int bunnyVertexArrayObjID;
+
+// vertex buffer object, used for uploading the geometry
+unsigned int bunnyVertexBufferObjID;
+unsigned int bunnyIndexBufferObjID;
+unsigned int bunnyNormalBufferObjID;
+
+// Reference to shader
+GLuint shader;
+
+void init(void)
+{
+	m = LoadModelData("bunny.obj");
+	dumpInfo();
+
+	// GL inits
+	glClearColor(0.2,0.2,0.5,0);
+	glDisable(GL_DEPTH_TEST);
+	printError("GL inits");
+
+	// Load and compile shader
+	shader = loadShaders("lab1-6.vert", "lab1-6.frag");
+
+	printError("init shader");
+	
+	// Upload geometry to the GPU:
+	
+	// Allocate and activate Vertex Array Object
+	glGenVertexArrays(1, &bunnyVertexArrayObjID);
+	glBindVertexArray(bunnyVertexArrayObjID);
+
+	// Allocate Vertex Buffer Objects
+	glGenBuffers(1, &bunnyVertexBufferObjID);
+	glGenBuffers(1, &bunnyIndexBufferObjID);
+	glGenBuffers(1, &bunnyNormalBufferObjID);
+	
+	// VBO for vertex data
+	glBindBuffer(GL_ARRAY_BUFFER, bunnyVertexBufferObjID);
+	glBufferData(GL_ARRAY_BUFFER, m->numVertices*3*sizeof(GLfloat), m->vertexArray, GL_STATIC_DRAW);
+	glVertexAttribPointer(glGetAttribLocation(shader, "in_Position"), 3, GL_FLOAT, GL_FALSE, 0, 0); 
+	glEnableVertexAttribArray(glGetAttribLocation(shader, "in_Position"));
+
+	// VBO for normal data
+	glBindBuffer(GL_ARRAY_BUFFER, bunnyNormalBufferObjID);
+	glBufferData(GL_ARRAY_BUFFER, m->numVertices*3*sizeof(GLfloat), m->normalArray, GL_STATIC_DRAW);
+	glVertexAttribPointer(glGetAttribLocation(shader, "in_Normal"), 3, GL_FLOAT, GL_FALSE, 0, 0);
+	glEnableVertexAttribArray(glGetAttribLocation(shader, "in_Normal"));
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bunnyIndexBufferObjID);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, m->numIndices*sizeof(GLuint), m->indexArray, GL_STATIC_DRAW);
+
+	glEnable(GL_DEPTH_TEST);
+
+	glutRepeatingTimer(16);
+	
+	printError("init arrays");
+}
+
+
+void display(void)
+{
+	printError("pre display");
+	// rotation matrix
+	GLfloat t = (GLfloat)glutGet(GLUT_ELAPSED_TIME);
+	float a = M_PI/(4000);
+
+	GLfloat rotationMatrix[] = { 	1.0f, 0.0f, 0.0f, 0.0f,
+					0.0f, cos(a*t), -sin(a*t), 0.0f,
+					0.0f, sin(a*t), cos(a*t), 0.0f,
+					0.0f, 0.0f, 0.0f, 1.0f };
+
+	GLfloat rotationMatrix2[] = { cos(0.5f*a*t), 0.0f, sin(0.5f*a*t), 0.0f,
+								0.0f, 1.0f, 0.0f, 0.0f,
+								-sin(0.5f*a*t), 0.0f, cos(0.5f*a*t), 0.0f,
+								0.0f, 0.0f, 0.0f, 1.0f };
+
+	// upload matrix?
+	glUniformMatrix4fv(glGetUniformLocation(shader, "rotationMatrix"), 1, GL_TRUE, rotationMatrix);
+	glUniformMatrix4fv(glGetUniformLocation(shader, "rotationMatrix2"), 1, GL_TRUE, rotationMatrix2);
+
+	// clear the screen
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	glBindVertexArray(bunnyVertexArrayObjID);	// Select VAO
+	glDrawElements(GL_TRIANGLES, m->numIndices, GL_UNSIGNED_INT, 0L);
+	
+	printError("display");
+	
+	glutSwapBuffers();
+}
+
+int main(int argc, char *argv[])
+{
+	glutInit(&argc, argv);
+	glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE | GLUT_DEPTH);
+	glutInitContextVersion(3, 2);
+	glutInitWindowSize(600, 600);
+	glutCreateWindow ("white triangle example");
+	glutDisplayFunc(display); 
+	init ();
+	glutMainLoop();
+	return 0;
+}
