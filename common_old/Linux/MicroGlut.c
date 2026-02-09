@@ -417,6 +417,8 @@ void doKeyboardEvent(XEvent event, void (*keyProc)(unsigned char key, int x, int
 			keyProc(buffer[0], 0, 0);
 	gKeymap[(int)buffer[0]] = keyMapValue;
 	
+//	printf("%c %d %d %d\n", buffer[0], buffer[0], r, code);
+
 //	      			if (event.type == KeyPress)
 //		      		{	if (gKey) gKey(buffer[0], 0, 0); gKeymap[(int)buffer[0]] = 1;}
 //		      		else
@@ -592,18 +594,18 @@ void glutRepeatingTimer(int millis)
 
 static void checktimers()
 {
-        // If no repeat, the first update sometimes fails. This seems to fix it.
-        if (gOnce > 0 && gTimer.repeatTime == 0)
-        {
-          sleep(1);
-          gOnce = 0;
-        }
-	if (gTimer.repeatTime > 0)
+	if (gTimer.repeatTime > 0 || gOnce > 0)
 	{
+	        if (gOnce > 0) gOnce -= 1;
 		int now = glutGet(GLUT_ELAPSED_TIME);
 		int nextTime = gTimer.lasttime + gTimer.repeatTime;
-		if (now > nextTime)
+		printf("gTimer.repeatTime is %d\n", gTimer.repeatTime);
+		printf("now is %d\n", now);
+		printf("nextTime is %d\n", nextTime);
+		printf("gOnce is %d\n", gOnce);
+		if (now > nextTime || gOnce == 1)
 		{
+		  gOnce = 0;
 		// Fire the timer
 			glutPostRedisplay();
 			gTimer.lasttime = gTimer.lasttime + gTimer.repeatTime;

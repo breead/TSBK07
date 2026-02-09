@@ -6,8 +6,36 @@
 // 2) Editability. Missing something? Want something to work a bit different? Just hack it in.
 // 3) No obsolete stuff! The old GLUT has a lot of functions that are inherently obsolete. Avoid!
 
+// Please note that this is still in an early stage. A lot of functionality is still missing.
 // If you add/change something of interest, especially if it follows the GLUT API, please sumbit
 // to me so I can consider adding that to the official version.
+
+// 2012: Made a first draft by extracting context creation from other code.
+// 130131: Fixed bugs in keyboard and update events. Seems to work pretty well! Things are missing, GL3 untested, but otherwise it runs stable with glutgears.
+// 130206: Timers now tested and working. CPU load kept decent when not intentionally high.
+// 130907: Bug fixes, test for non-existing gReshape, glutKeyboardUpFunc corrected.
+// 130916: Fixed the event bug. Cleaned up most comments left from debugging.
+// 130926: Cleaned up warnings, added missing #includes.
+// 140130: A bit more cleanup for avoiding warnings (_BSD_SOURCE below).
+// 140401: glutKeyIsDown and glutWarpPointer added and got an extra round of testing.
+// 150205: glutRepeatingTimer new, better name for glutRepeatingTimerFunc
+// Added a default glViewport call when the window is resized.
+// Made a bug fix in the event processing so that mouse drag events won't stack up.
+// Somewhere here I added a kind of full-screen support (but without removing window borders).
+// 150216: Added proper OpenGL3 initalization. (Based on a patch by Sebastian Parborg.)
+// 150223: Finally, decent handling on the GLUT configuration!
+// 150227: Resize triggers an update!
+// 150302: Window position, multisample, even better config
+// 150618: Added glutMouseIsDown() (not in the old GLUT API but a nice extension!).
+// Added #ifdefs to produce errors if compiled on the wrong platform!
+// 150909: Added glutExit.
+// 150924: Added support for special keys.
+// 160302: Added glutShowCursor and glutHideCursor.
+// 170405: Made some globals static.
+// 170406: Added "const" to string arguments to make C++ happier. glutSpecialFunc and glutSpecialUpFunc are now officially supported - despite being deprecated. (I recommend that you use the same keyboard func for everything.) Added support for multiple mouse buttons (right and left).
+// 170410: Modified glutWarpPointer to make it more robust. Commended out some unused variables to avoid warnings.
+// 180124: Modifications to make it work better on recent MESA, which seems to have introduced some changes. Adds glFlush() in glutSwapBuffers and a timer when starting glutMain to invoke an update after 100 ms.
+// 180208: Added GLUT_WINDOW_WIDTH, GLUT_WINDOW_HEIGHT, GLUT_MOUSE_POSITION_X and GLUT_MOUSE_POSITION_Y to GlutGet. They were already in the Mac version, so let's converge the versions a bit.
 
 #define _DEFAULT_SOURCE
 #include <math.h>
@@ -417,18 +445,18 @@ void doKeyboardEvent(XEvent event, void (*keyProc)(unsigned char key, int x, int
 			keyProc(buffer[0], 0, 0);
 	gKeymap[(int)buffer[0]] = keyMapValue;
 	
+//	printf("%c %d %d %d\n", buffer[0], buffer[0], r, code);
+
 //	      			if (event.type == KeyPress)
 //		      		{	if (gKey) gKey(buffer[0], 0, 0); gKeymap[(int)buffer[0]] = 1;}
 //		      		else
 //		      		{	if (gKeyUp) gKeyUp(buffer[0], 0, 0); gKeymap[(int)buffer[0]] = 0;}
 }
 
-//void internaltimer(int x)
-//{
-//	glutPostRedisplay();
-//}
-
-char gOnce; // Fix for making the first update
+void internaltimer(int x)
+{
+	glutPostRedisplay();
+}
 
 void glutMainLoop()
 {
@@ -438,8 +466,7 @@ void glutMainLoop()
 	XAllowEvents(dpy, AsyncBoth, CurrentTime);
 
 // 2018-01-24: An attempt to patch over the problem that recent MESA tends to fail the first update.
-// 2026: Removed the multiple timer so this was changed to a counter.
-	gOnce = 2;
+	glutTimerFunc(100, internaltimer, 0);
 
 	while (gRunning)
 	{
@@ -576,48 +603,99 @@ int glutGet(int type)
 // NOTE: The timer is not designed with any multithreading in mind!
 typedef struct TimerRec
 {
-	int lasttime;
+	int arg;
+	int time;
 	int repeatTime;
+	void (*func)(int arg);
+	char repeating;
+	struct TimerRec *next;
+	struct TimerRec *prev;
 } TimerRec;
 
-TimerRec gTimer;
+TimerRec *gTimers = NULL;
 
-// Added by Ingemar, replaced glutTimerFunc.
-// No more support for multiple timers, usually not needed anyway.
+void glutTimerFunc(int millis, void (*func)(int arg), int arg)
+{
+	TimerRec *t	= (TimerRec *)malloc(sizeof(TimerRec));
+	t->arg = arg;
+	t->time = millis + glutGet(GLUT_ELAPSED_TIME);
+	t->repeatTime = 0;
+	t->repeating = 0;
+	t->func = func;
+	t->next = gTimers;
+	t->prev = NULL;
+	if (gTimers != NULL)
+		gTimers->prev = t;
+	gTimers = t;
+}
+
+// Added by Ingemar
+// void glutRepeatingTimerFunc(int millis)
 void glutRepeatingTimer(int millis)
 {
-	gTimer.lasttime = 0; // Should really be millis + glutGet(GLUT_ELAPSED_TIME);
-	gTimer.repeatTime = millis;
+	TimerRec *t	= (TimerRec *)malloc(sizeof(TimerRec));
+	t->arg = 0;
+	t->time = millis + glutGet(GLUT_ELAPSED_TIME);
+	t->repeatTime = millis;
+	t->repeating = 1;
+	t->func = NULL;
+	t->next = gTimers;
+	t->prev = NULL;
+	if (gTimers != NULL)
+		gTimers->prev = t;
+	gTimers = t;
 }
 
 static void checktimers()
 {
-        // If no repeat, the first update sometimes fails. This seems to fix it.
-        if (gOnce > 0 && gTimer.repeatTime == 0)
-        {
-          sleep(1);
-          gOnce = 0;
-        }
-	if (gTimer.repeatTime > 0)
+	if (gTimers != NULL)
 	{
+		TimerRec *t, *firethis = NULL;
 		int now = glutGet(GLUT_ELAPSED_TIME);
-		int nextTime = gTimer.lasttime + gTimer.repeatTime;
-		if (now > nextTime)
+		int nextTime = now + 1000; // Distant future, 1 second
+		t = gTimers;
+		for (t = gTimers; t != NULL; t = t->next)
+		{
+			if (t->time < nextTime) nextTime = t->time; // Time for the next one
+			if (t->time < now) // See if this is due to fire
+			{
+				firethis = t;
+			}
+		}
+		if (firethis != NULL)
 		{
 		// Fire the timer
-			glutPostRedisplay();
-			gTimer.lasttime = gTimer.lasttime + gTimer.repeatTime;
-			usleep(10); // Still sleep a little in case the animation is going astray.
+			if (firethis->func != NULL)
+				firethis->func(firethis->arg);
+			else
+				glutPostRedisplay();
+		// Remove the timer if it was one-shot, otherwise update the time
+			if (firethis->repeating)
+			{
+				firethis->time = now + firethis->repeatTime;
+			}
+			else
+			{
+				if (firethis->prev != NULL)
+					firethis->prev->next = firethis->next;
+				else
+					gTimers = firethis->next;
+                if (firethis->next != NULL)
+					firethis->next->prev = firethis->prev;
+				free(firethis);
+			}
 		}
-		// Otherwise, sleep until the timer should fire
-		else // nextTime > now
-                {
-        	  usleep(10); // Just a little to avoid making the system non-responsive
-                }
+		// Otherwise, sleep until any timer should fire
+        if (!animate)
+			if (nextTime > now)
+            {
+		usleep((nextTime - now)*1000);
+            }
 	}
     else
-// If no update, sleep a little to keep CPU load low
-        usleep(10);
+// If no timer and no update, sleep a little to keep CPU load low
+        if (!animate)
+            usleep(10);
 }
 
 void glutInitContextVersion(int major, int minor)
