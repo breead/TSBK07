@@ -5,6 +5,7 @@
 #include "LittleOBJLoader.h"
 #include "LoadTGA.h"
 #include "VectorUtils4.h"
+#include <vector>
 // uses framework OpenGL
 // uses framework Cocoa
 
@@ -12,7 +13,7 @@
 // Data would normally be read from files
 
 Model *m_blade;
-Model *m_blades[]; // såhär kan man inte göra
+std::vector<Model*> m_blades;
 
 #define near 1.0
 
@@ -48,20 +49,20 @@ GLuint myTex;
 // Reference to shader
 GLuint shader;
 
-mat4 trans, total, world;
+mat4 trans, total, world, rotation, rotation_wings;
 
 vec3 p, l, v;
 
 void init(void)
 {
 	for (int i = 0; i < 4; i++) {
-		m_blades[i] = LoadModel("windmill/blade.obj");
+		m_blades.push_back(LoadModel("windmill/blade.obj"));
 	}
 	dumpInfo();
 
 	// LoadTGATextureSimple("rutor.tga", &myTex);
 
-	total = T(0, 0, 0);
+	total = T(0, 2, 0) * Ry(-M_PI/2);
 
 	// GL inits
 	glClearColor(0.2,0.2,0.5,0);
@@ -94,15 +95,10 @@ void display(void)
 	printError("pre display");
 	// rotation matrix
 	GLfloat t = (GLfloat)glutGet(GLUT_ELAPSED_TIME);
-	float a = M_PI/(4000);
+	float a = M_PI/(400000);
 
-	GLfloat rotationMatrix[] = { 	1.0f, 0.0f, 0.0f, 0.0f,
-					0.0f, cos(a*t), -sin(a*t), 0.0f,
-					0.0f, sin(a*t), cos(a*t), 0.0f,
-					0.0f, 0.0f, 0.0f, 1.0f };
-
-	glUniformMatrix4fv(glGetUniformLocation(shader, "rotationMatrix"), 1, GL_TRUE, rotationMatrix);
-	p = vec3(3*sin(a*t), 3, 3*cos(a*t));
+	// p = vec3(9*sin(a*t), 9, 9*cos(a*t));
+	p = vec3(0, 0, 12);
 	l = vec3(0,0,0);
 	v = vec3(0,1,0);
 	world = lookAtv(p,l,v);
@@ -117,12 +113,30 @@ void display(void)
 	
 	// upload model matrices
 
-	glUniformMatrix4fv(glGetUniformLocation(shader, "mdlMatrix"), 1, GL_TRUE, total.m);
+	GLint mdlLoc = glGetUniformLocation(shader, "mdlMatrix");
+	glUniformMatrix4fv(mdlLoc, 1, GL_TRUE, total.m);
+
+	mat4 test2 = {1.0f, 0.0f, 0.0f, 0.0f,
+		0.0f, cos(t*a), -sin(t*a), 0.0f,
+		0.0f, sin(t*a), cos(t*a), 0.0f,
+		0.0f, 0.0f, 0.0f, 1.0f};
+	rotation_wings = Rx(t*a);
+	// total = total * rotation_wings;
+	total = total * test2;
 	for (int i = 0; i < 4; i++) {
-		GLfloat rotationMatrix[] = { 	1.0f, 0.0f, 0.0f, 0.0f,
-				0.0f, cos(M_PI*i/2 + a*t), -sin(M_PI*i/2 + a*t), 0.0f,
-				0.0f, sin(M_PI*i/2 + a*t), cos(M_PI*i/2 + a*t), 0.0f,
-				0.0f, 0.0f, 0.0f, 1.0f };
+		// GLfloat rotationMatrix[] = { 	1.0f, 0.0f, 0.0f, 0.0f,
+		// 		0.0f, cos(M_PI*i/2), -sin(M_PI*i/2), 0.0f,
+		// 		0.0f, sin(M_PI*i/2), cos(M_PI*i/2), 0.0f,
+		// 		0.0f, 0.0f, 0.0f, 1.0f };
+		mat4 test = {1.0f, 0.0f, 0.0f, 0.0f,
+		 		0.0f, cos(M_PI*i/2), -sin(M_PI*i/2), 0.0f,
+		 		0.0f, sin(M_PI*i/2), cos(M_PI*i/2), 0.0f,
+		 		0.0f, 0.0f, 0.0f, 1.0f};
+		rotation = Rx(M_PI*i/2);
+		total = total * test;
+
+		glUniformMatrix4fv(mdlLoc, 1, GL_TRUE, total.m);
+
 		DrawModel(m_blades[i], shader, "in_Position", "in_Normal", "inTexCoord");	
 	}
 	
