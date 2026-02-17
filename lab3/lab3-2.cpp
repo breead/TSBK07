@@ -64,6 +64,12 @@ void init(void)
 	m_roof = LoadModel("windmill/windmill-roof.obj");
 	m_balcony = LoadModel("windmill/windmill-balcony.obj");
 
+	// p = vec3(9*sin(a*t), 9, 9*cos(a*t));
+	p = vec3(20, 10, 20);
+	l = vec3(0,8,0);
+	v = vec3(0,1,0);
+	world = lookAtv(p,l,v);
+
 	// LoadTGATextureSimple("rutor.tga", &myTex);
 
 	total_windmill = T(0, 0, -3); // change this to move the whole windmill
@@ -76,7 +82,7 @@ void init(void)
 	printError("GL inits");
 
 	// Load and compile shader
-	shader = loadShaders("lab3-1.vert", "lab3-1.frag");
+	shader = loadShaders("lab3-2.vert", "lab3-2.frag");
 
 	printError("init shader");
 
@@ -97,16 +103,11 @@ void init(void)
 
 void display(void)
 {
+	world = lookAtv(p,l,v);
 	printError("pre display");
 	// rotation matrix
 	GLfloat t = (GLfloat)glutGet(GLUT_ELAPSED_TIME);
 	float a = M_PI/(60);
-
-	// p = vec3(9*sin(a*t), 9, 9*cos(a*t));
-	p = vec3(20, 10, 20);
-	l = vec3(0,8,0);
-	v = vec3(0,1,0);
-	world = lookAtv(p,l,v);
 	
 	glUniformMatrix4fv(glGetUniformLocation(shader, "wrlMatrix"), 1, GL_TRUE, world.m);
 
@@ -156,7 +157,46 @@ void display(void)
 	//balcony
 	glUniformMatrix4fv(mdlLoc, 1, GL_TRUE, total_balcony.m);
 	DrawModel(m_balcony, shader, "in_Position", "in_Normal", "inTexCoord");
-	
+
+	if(glutKeyIsDown('a')){
+		p = p + vec3(1,0,0);
+	}
+
+	if(glutKeyIsDown('d')){
+		p = p + vec3(-1,0,0);
+	}
+	if(glutKeyIsDown('w')){
+		p = p + vec3(0,1,0);
+	}
+	if(glutKeyIsDown('s')){
+		p = p + vec3(0,-1,0);
+	}
+	if(glutKeyIsDown('q')){
+		p = p + vec3(0,0,1);
+	}
+	if(glutKeyIsDown('e')){
+		p = p + vec3(0,0,-1);
+	}
+
+	/* 
+	if(glutKeyIsDown('a')){
+		world = world*T(1,0,0);
+	}
+	if(glutKeyIsDown('d')){
+		world = world*T(-1,0,0);
+	}
+	if(glutKeyIsDown('w')){
+		world = world* T(0,1,0);
+	}
+	if(glutKeyIsDown('s')){
+		world = world*T(0,-1,0);
+	}
+	if(glutKeyIsDown('q')){
+		world = world*T(0,0,1);
+	}
+	if(glutKeyIsDown('e')){
+		world = world*T(0,0,-1);
+	}*/
 	printError("display");
 	
 	glutSwapBuffers();

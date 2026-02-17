@@ -12,12 +12,12 @@
 // Globals
 // Data would normally be read from files
 
-Model *m_blade, *m_roof, *m_wall, *m_balcony;
+Model *m_blade, *m_roof, *m_wall, *m_balcony, *m_ground;
 std::vector<Model*> m_blades;
 
 #define near 1.0
 
-#define far 40.0
+#define far 100.0
 
 #define right 0.5
 
@@ -33,25 +33,69 @@ GLfloat projectionMatrix[] = {    2.0f*near/(right-left), 0.0f, (right+left)/(ri
                                             0.0f, 0.0f, -1.0f, 0.0f };
 // vertex array object
 
-
-
-unsigned int bunnyVertexArrayObjID;
-
-// vertex buffer object, used for uploading the geometry
-unsigned int bunnyVertexBufferObjID;
-unsigned int bunnyIndexBufferObjID;
-unsigned int bunnyNormalBufferObjID;
-unsigned int bunnyTexCoordBufferObjID;
+unsigned int groundTexCoordBufferObjID;
 
 // texture reference
 GLuint myTex;
 
 // Reference to shader
-GLuint shader;
+GLuint shader, shader_texture;
 
-mat4 trans, total, world, rotation, rotation_wings, total_windmill, total_balcony;
+mat4 trans, total, world, rotation, rotation_wings, total_windmill, total_balcony, total_ground;
 
 vec3 p, l, v;
+
+GLfloat kGroundSize = 80;
+
+vec3 vertices[] =
+{
+	vec3(-kGroundSize,0.0f,-kGroundSize),
+	vec3(-kGroundSize,0.0f,kGroundSize),
+	vec3(kGroundSize,-0.0f,-kGroundSize),
+	vec3(kGroundSize,-0.0f,kGroundSize)
+};
+
+vec3 vertex_normals[] =
+{
+	vec3(0.0f,1.0f,0.0f),
+	vec3(0.0f,1.0f,0.0f),
+	vec3(0.0f,1.0f,0.0f),
+	vec3(0.0f,1.0f,0.0f)
+};
+
+vec2 tex_coords[] =
+{
+	vec2(0.0f,0.0f),
+	vec2(0.0f,20.0f),
+	vec2(20.0f,0.0f), 
+	vec2(20.0f,20.0f)
+};
+
+GLuint indices[] =
+{
+	0, 1, 2, 1, 3, 2
+};
+
+vec3 colors[] = 
+{
+	vec3(0,0,1),
+	vec3(1,0,1),
+	vec3(0,1,1),
+	vec3(1,1,0)
+};
+
+/*
+Model* LoadDataToModel(
+			vec3 *vertices,
+			vec3 *normals,
+			vec2 *texCoords,
+			vec3 *colors,
+			GLuint *indices,
+			int numVert,
+			int numInd);
+*/
+
+
 
 void init(void)
 {
@@ -63,9 +107,17 @@ void init(void)
 	m_wall = LoadModel("windmill/windmill-walls2.obj");
 	m_roof = LoadModel("windmill/windmill-roof.obj");
 	m_balcony = LoadModel("windmill/windmill-balcony.obj");
+	m_ground = LoadDataToModel(vertices, vertex_normals, tex_coords, colors, indices, 4, 4);
+	//m_bunny = 
 
-	// LoadTGATextureSimple("rutor.tga", &myTex);
 
+	// p = vec3(9*sin(a*t), 9, 9*cos(a*t));
+	p = vec3(20, 10, 20);
+	l = vec3(0,8,0);
+	v = vec3(0,1,0);
+	world = lookAtv(p,l,v);
+
+	total_ground = T(kGroundSize/2,0,0);
 	total_windmill = T(0, 0, -3); // change this to move the whole windmill
 	total = total_windmill * T(0, 9.25f, 4.5f) * Ry(-M_PI/2); //total model matrix for blades
 	total_balcony = total_windmill * Ry(-3*M_PI/2) * S(-1, 1, 1);
@@ -75,15 +127,26 @@ void init(void)
 	glDisable(GL_DEPTH_TEST);
 	printError("GL inits");
 
-	// Load and compile shader
-	shader = loadShaders("lab3-1.vert", "lab3-1.frag");
+	// textures
+	LoadTGATextureSimple("conc.tga", &myTex);
+	if (m_ground->texCoordArray != NULL)
+	{
+		glBindBuffer(GL_ARRAY_BUFFER, groundTexCoordBufferObjID);
+		glBufferData(GL_ARRAY_BUFFER, m_ground->numVertices*2*sizeof(GLfloat), m_ground->texCoordArray, GL_STATIC_DRAW);
+		glVertexAttribPointer(glGetAttribLocation(shader, "inTexCoord"), 2, GL_FLOAT, GL_FALSE, 0, 0);
+		glEnableVertexAttribArray(glGetAttribLocation(shader, "inTexCoord"));
+	}
 
+	// Load and compile shader
+	shader = loadShaders("lab3-3.vert", "lab3-3.frag");
+	// shader_textured = loadShaders("");
 	printError("init shader");
 
 	glBindTexture(GL_TEXTURE_2D, myTex);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	glUniform1i(glGetUniformLocation(shader, "texUnit"), 0); // Texture unit 0
+	
 	
 	glUniformMatrix4fv(glGetUniformLocation(shader, "projectionMatrix"), 1, GL_TRUE, projectionMatrix);
 	
@@ -97,21 +160,18 @@ void init(void)
 
 void display(void)
 {
+	world = lookAtv(p,l,v);
 	printError("pre display");
 	// rotation matrix
 	GLfloat t = (GLfloat)glutGet(GLUT_ELAPSED_TIME);
+	int has_texture = 0;
 	float a = M_PI/(60);
-
-	// p = vec3(9*sin(a*t), 9, 9*cos(a*t));
-	p = vec3(20, 10, 20);
-	l = vec3(0,8,0);
-	v = vec3(0,1,0);
-	world = lookAtv(p,l,v);
 	
 	glUniformMatrix4fv(glGetUniformLocation(shader, "wrlMatrix"), 1, GL_TRUE, world.m);
 
 	// upload t? not used i think
 	glUniform1f(glGetUniformLocation(shader, "t"), t);
+	glUniform1i(glGetUniformLocation(shader, "has_texture"), has_texture);
 	
 	// clear the screen
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -156,7 +216,53 @@ void display(void)
 	//balcony
 	glUniformMatrix4fv(mdlLoc, 1, GL_TRUE, total_balcony.m);
 	DrawModel(m_balcony, shader, "in_Position", "in_Normal", "inTexCoord");
+
+	// ground
+	has_texture = 0;
+	glUniform1i(glGetUniformLocation(shader, "has_texture"), has_texture);
 	
+	glUniformMatrix4fv(mdlLoc, 1, GL_TRUE, total_ground.m);
+	DrawModel(m_ground, shader, "in_Position", "in_Normal", "inTexCoord");
+
+	if(glutKeyIsDown('a')){
+		p = p + vec3(1,0,0);
+	}
+
+	if(glutKeyIsDown('d')){
+		p = p + vec3(-1,0,0);
+	}
+	if(glutKeyIsDown('w')){
+		p = p + vec3(0,1,0);
+	}
+	if(glutKeyIsDown('s')){
+		p = p + vec3(0,-1,0);
+	}
+	if(glutKeyIsDown('q')){
+		p = p + vec3(0,0,1);
+	}
+	if(glutKeyIsDown('e')){
+		p = p + vec3(0,0,-1);
+	}
+
+	/* 
+	if(glutKeyIsDown('a')){
+		world = world*T(1,0,0);
+	}
+	if(glutKeyIsDown('d')){
+		world = world*T(-1,0,0);
+	}
+	if(glutKeyIsDown('w')){
+		world = world* T(0,1,0);
+	}
+	if(glutKeyIsDown('s')){
+		world = world*T(0,-1,0);
+	}
+	if(glutKeyIsDown('q')){
+		world = world*T(0,0,1);
+	}
+	if(glutKeyIsDown('e')){
+		world = world*T(0,0,-1);
+	}*/
 	printError("display");
 	
 	glutSwapBuffers();
