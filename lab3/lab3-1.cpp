@@ -44,7 +44,7 @@ unsigned int bunnyNormalBufferObjID;
 unsigned int bunnyTexCoordBufferObjID;
 
 // texture reference
-GLuint myTex;
+GLuint groundTex;
 
 // Reference to shader
 GLuint shader;
@@ -64,7 +64,7 @@ void init(void)
 	m_roof = LoadModel("windmill/windmill-roof.obj");
 	m_balcony = LoadModel("windmill/windmill-balcony.obj");
 
-	// LoadTGATextureSimple("rutor.tga", &myTex);
+	// LoadTGATextureSimple("rutor.tga", &groundTex);
 
 	total_windmill = T(0, 0, -3); // change this to move the whole windmill
 	total = total_windmill * T(0, 9.25f, 4.5f) * Ry(-M_PI/2); //total model matrix for blades
@@ -80,7 +80,7 @@ void init(void)
 
 	printError("init shader");
 
-	glBindTexture(GL_TEXTURE_2D, myTex);
+	glBindTexture(GL_TEXTURE_2D, groundTex);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	glUniform1i(glGetUniformLocation(shader, "texUnit"), 0); // Texture unit 0

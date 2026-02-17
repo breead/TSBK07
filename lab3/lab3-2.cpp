@@ -44,7 +44,7 @@ unsigned int bunnyNormalBufferObjID;
 unsigned int bunnyTexCoordBufferObjID;
 
 // texture reference
-GLuint myTex;
+GLuint groundTex;
 
 // Reference to shader
 GLuint shader;
@@ -86,7 +86,7 @@ void init(void)
 
 	printError("init shader");
 
-	glBindTexture(GL_TEXTURE_2D, myTex);
+	glBindTexture(GL_TEXTURE_2D, groundTex);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	glUniform1i(glGetUniformLocation(shader, "texUnit"), 0); // Texture unit 0

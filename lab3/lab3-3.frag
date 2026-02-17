@@ -11,9 +11,10 @@ void main(void)
 {
 	if(has_texture == 1) {
 		vec4 color;
-		color = texture(texUnit, texCoord*2);
+		color = texture(texUnit, texCoord);
 		out_Color = color;
 	} else {
 		out_Color = vec4(exColor, 1.0);
 	}
 }
+

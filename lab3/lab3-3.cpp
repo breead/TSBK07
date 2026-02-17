@@ -12,7 +12,7 @@
 // Globals
 // Data would normally be read from files
 
-Model *m_blade, *m_roof, *m_wall, *m_balcony, *m_ground;
+Model *m_blade, *m_roof, *m_wall, *m_balcony, *m_ground, *m_gojira, *m_skybox;
 std::vector<Model*> m_blades;
 
 #define near 1.0
@@ -35,13 +35,13 @@ GLfloat projectionMatrix[] = {    2.0f*near/(right-left), 0.0f, (right+left)/(ri
 
 unsigned int groundTexCoordBufferObjID;
 
-// texture reference
-GLuint myTex;
+// texture references
+GLuint groundTex, skyboxTex;
 
 // Reference to shader
-GLuint shader, shader_texture;
+GLuint shader;
 
-mat4 trans, total, world, rotation, rotation_wings, total_windmill, total_balcony, total_ground;
+mat4 trans, total, world, rotation, rotation_wings, total_windmill, total_balcony, total_ground, total_gojira, total_skybox;
 
 vec3 p, l, v;
 
@@ -84,19 +84,6 @@ vec3 colors[] =
 	vec3(1,1,0)
 };
 
-/*
-Model* LoadDataToModel(
-			vec3 *vertices,
-			vec3 *normals,
-			vec2 *texCoords,
-			vec3 *colors,
-			GLuint *indices,
-			int numVert,
-			int numInd);
-*/
-
-
-
 void init(void)
 {
 	for (int i = 0; i < 4; i++) {
@@ -108,8 +95,8 @@ void init(void)
 	m_roof = LoadModel("windmill/windmill-roof.obj");
 	m_balcony = LoadModel("windmill/windmill-balcony.obj");
 	m_ground = LoadDataToModel(vertices, vertex_normals, tex_coords, colors, indices, 4, 4);
-	//m_bunny = 
-
+	m_gojira = LoadModel("new models/Godzilla/godzilla.obj");
+	m_skybox = LoadModel("skybox/labskyboxfull.obj");
 
 	// p = vec3(9*sin(a*t), 9, 9*cos(a*t));
 	p = vec3(20, 10, 20);
@@ -121,33 +108,46 @@ void init(void)
 	total_windmill = T(0, 0, -3); // change this to move the whole windmill
 	total = total_windmill * T(0, 9.25f, 4.5f) * Ry(-M_PI/2); //total model matrix for blades
 	total_balcony = total_windmill * Ry(-3*M_PI/2) * S(-1, 1, 1);
+	total_gojira = T(-15, 0, 0) * S(4) * Ry(-M_PI);
 
 	// GL inits
 	glClearColor(0.2,0.2,0.5,0);
 	glDisable(GL_DEPTH_TEST);
 	printError("GL inits");
 
+	// Load and compile shader
+	shader = loadShaders("lab3-3.vert", "lab3-3.frag");
+
+	printError("init shader");
+
 	// textures
-	LoadTGATextureSimple("conc.tga", &myTex);
+	LoadTGATextureSimple("skybox/labSkyBoxFull.tga", &skyboxTex);
+	LoadTGATextureSimple("grass.tga", &groundTex);
 	if (m_ground->texCoordArray != NULL)
 	{
-		glBindBuffer(GL_ARRAY_BUFFER, groundTexCoordBufferObjID);
+		glBindBuffer(GL_ARRAY_BUFFER, m_ground->tb);
 		glBufferData(GL_ARRAY_BUFFER, m_ground->numVertices*2*sizeof(GLfloat), m_ground->texCoordArray, GL_STATIC_DRAW);
 		glVertexAttribPointer(glGetAttribLocation(shader, "inTexCoord"), 2, GL_FLOAT, GL_FALSE, 0, 0);
 		glEnableVertexAttribArray(glGetAttribLocation(shader, "inTexCoord"));
 	}
 
-	// Load and compile shader
-	shader = loadShaders("lab3-3.vert", "lab3-3.frag");
-	// shader_textured = loadShaders("");
-	printError("init shader");
+	if (m_skybox->texCoordArray != NULL)
+	{
+		glBindBuffer(GL_ARRAY_BUFFER, m_skybox->tb);
+		glBufferData(GL_ARRAY_BUFFER, m_skybox->numVertices*2*sizeof(GLfloat), m_skybox->texCoordArray, GL_STATIC_DRAW);
+		glVertexAttribPointer(glGetAttribLocation(shader, "inTexCoord"), 2, GL_FLOAT, GL_FALSE, 0, 0);
+		glEnableVertexAttribArray(glGetAttribLocation(shader, "inTexCoord"));
+	}
+	glUniform1i(glGetUniformLocation(shader, "texUnit"), 0); // Texture unit 0
 
-	glBindTexture(GL_TEXTURE_2D, myTex);
+	glBindTexture(GL_TEXTURE_2D, skyboxTex);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glUniform1i(glGetUniformLocation(shader, "texUnit"), 0); // Texture unit 0
-	
-	
+
+	glBindTexture(GL_TEXTURE_2D, groundTex);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+
 	glUniformMatrix4fv(glGetUniformLocation(shader, "projectionMatrix"), 1, GL_TRUE, projectionMatrix);
 	
 	glEnable(GL_DEPTH_TEST);
@@ -164,41 +164,55 @@ void display(void)
 	printError("pre display");
 	// rotation matrix
 	GLfloat t = (GLfloat)glutGet(GLUT_ELAPSED_TIME);
-	int has_texture = 0;
+	
 	float a = M_PI/(60);
 	
-	glUniformMatrix4fv(glGetUniformLocation(shader, "wrlMatrix"), 1, GL_TRUE, world.m);
 
 	// upload t? not used i think
 	glUniform1f(glGetUniformLocation(shader, "t"), t);
+
+	// tell shader whether model has texture
+	int has_texture = 1;
 	glUniform1i(glGetUniformLocation(shader, "has_texture"), has_texture);
 	
 	// clear the screen
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	
 	// upload model matrices
-
 	GLint mdlLoc = glGetUniformLocation(shader, "mdlMatrix");
 	glUniformMatrix4fv(mdlLoc, 1, GL_TRUE, total.m);
 
-	mat4 test2 = {1.0f, 0.0f, 0.0f, 0.0f,
+	// skybox
+	glBindTexture(GL_TEXTURE_2D, skyboxTex);
+	glDisable(GL_DEPTH_TEST);
+	mat4 tmp = world;
+	
+	tmp.m[3] = 0; tmp.m[7] = 0; tmp.m[11] = 0; // zero out translation of camera matrix
+	// printMat4(tmp);
+	glUniformMatrix4fv(glGetUniformLocation(shader, "wrlMatrix"), 1, GL_TRUE, tmp.m);
+	total_skybox = S(20);
+	glUniformMatrix4fv(mdlLoc, 1, GL_TRUE, total_skybox.m);
+	DrawModel(m_skybox, shader, "in_Position", "in_Normal", "inTexCoord");
+	glEnable(GL_DEPTH_TEST);
+
+	glUniformMatrix4fv(glGetUniformLocation(shader, "wrlMatrix"), 1, GL_TRUE, world.m);
+
+	has_texture = 0;
+	glUniform1i(glGetUniformLocation(shader, "has_texture"), has_texture);
+
+	mat4 spin_blades = {1.0f, 0.0f, 0.0f, 0.0f,
 		0.0f, cos(a), -sin(a), 0.0f,
 		0.0f, sin(a), cos(a), 0.0f,
 		0.0f, 0.0f, 0.0f, 1.0f};
-	rotation_wings = Rx(a);
-	// total = total * rotation_wings;
-	total = total * test2;
+
+	total = total * spin_blades;
 	for (int i = 0; i < 4; i++) {
-		// GLfloat rotationMatrix[] = { 	1.0f, 0.0f, 0.0f, 0.0f,
-		// 		0.0f, cos(M_PI*i/2), -sin(M_PI*i/2), 0.0f,
-		// 		0.0f, sin(M_PI*i/2), cos(M_PI*i/2), 0.0f,
-		// 		0.0f, 0.0f, 0.0f, 1.0f };
-		mat4 test = {1.0f, 0.0f, 0.0f, 0.0f,
+		mat4 offset_blades = {1.0f, 0.0f, 0.0f, 0.0f,
 		 		0.0f, cos(M_PI*i/2), -sin(M_PI*i/2), 0.0f,
 		 		0.0f, sin(M_PI*i/2), cos(M_PI*i/2), 0.0f,
 		 		0.0f, 0.0f, 0.0f, 1.0f};
 		rotation = Rx(M_PI*i/2);
-		total = total * test;
+		total = total * offset_blades;
 
 		glUniformMatrix4fv(mdlLoc, 1, GL_TRUE, total.m);
 
@@ -216,13 +230,21 @@ void display(void)
 	//balcony
 	glUniformMatrix4fv(mdlLoc, 1, GL_TRUE, total_balcony.m);
 	DrawModel(m_balcony, shader, "in_Position", "in_Normal", "inTexCoord");
-
-	// ground
-	has_texture = 0;
-	glUniform1i(glGetUniformLocation(shader, "has_texture"), has_texture);
 	
+	// godzilla
+	glUniformMatrix4fv(mdlLoc, 1, GL_TRUE, total_gojira.m);
+	DrawModel(m_gojira, shader, "in_Position", "in_Normal", "inTexCoord");
+	
+	// ground
+	
+	has_texture = 1;
+	glUniform1i(glGetUniformLocation(shader, "has_texture"), has_texture);
+	glBindTexture(GL_TEXTURE_2D, groundTex);
 	glUniformMatrix4fv(mdlLoc, 1, GL_TRUE, total_ground.m);
 	DrawModel(m_ground, shader, "in_Position", "in_Normal", "inTexCoord");
+
+
+
 
 	if(glutKeyIsDown('a')){
 		p = p + vec3(1,0,0);
