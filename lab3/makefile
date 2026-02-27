@@ -15,7 +15,7 @@ lab3-3 : lab3-3.cpp $(commondir)GL_utilities.c $(commondir)LoadTGA.c $(commondir
 lab3-4a : lab3-4a.cpp $(commondir)GL_utilities.c $(commondir)LoadTGA.c $(commondir)Linux/MicroGlut.c
 	g++ -Wall -o lab3-4a -I$(commondir) -I../common/Linux -DGL_GLEXT_PROTOTYPES lab3-4a.cpp $(commondir)GL_utilities.c $(commondir)LoadTGA.c $(commondir)Linux/MicroGlut.c -lX11 -lGL -lm
 
-lab3-4d : lab3-4a.cpp $(commondir)GL_utilities.c $(commondir)LoadTGA.c $(commondir)Linux/MicroGlut.c
+lab3-4d : lab3-4d.cpp $(commondir)GL_utilities.c $(commondir)LoadTGA.c $(commondir)Linux/MicroGlut.c
 	g++ -Wall -o lab3-4d -I$(commondir) -I../common/Linux -DGL_GLEXT_PROTOTYPES lab3-4d.cpp $(commondir)GL_utilities.c $(commondir)LoadTGA.c $(commondir)Linux/MicroGlut.c -lX11 -lGL -lm
 
 clean :

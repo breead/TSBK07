@@ -84,6 +84,26 @@ vec3 colors[] =
 	vec3(1,1,0)
 };
 
+vec3 lightSourcesColorsArr[] = { vec3(1.0f, 0.0f, 0.0f), // Red light
+
+                                 vec3(0.0f, 1.0f, 0.0f), // Green light
+
+                                 vec3(0.0f, 0.0f, 1.0f), // Blue light
+
+                                 vec3(1.0f, 1.0f, 1.0f) }; // White light
+
+GLint isDirectional[] = {0,0,1,1};
+
+GLfloat specularExponent[] = {100.0, 200.0, 60.0};
+
+vec3 lightSourcesDirectionsPositions[] = { vec3(10.0f, 5.0f, 0.0f), // Red light, positional
+
+                                       vec3(0.0f, 5.0f, 10.0f), // Green light, positional
+
+                                       vec3(-1.0f, 0.0f, 0.0f), // Blue light along X
+
+                                       vec3(0.0f, 0.0f, -1.0f) }; // White light along Z
+
 void init(void)
 {
 	for (int i = 0; i < 4; i++) {
@@ -94,31 +114,39 @@ void init(void)
 	m_wall = LoadModel("windmill/windmill-walls2.obj");
 	m_roof = LoadModel("windmill/windmill-roof.obj");
 	m_balcony = LoadModel("windmill/windmill-balcony.obj");
-	m_ground = LoadDataToModel(vertices, vertex_normals, tex_coords, colors, indices, 4, 4);
-	m_teapot = LoadModel("new models/Godzilla/godzilla.obj");
+	m_ground = LoadDataToModel(vertices, vertex_normals, tex_coords, colors, indices, 4, 6);
+	m_teapot = LoadModel("models/various/teapot.obj");
 	m_skybox = LoadModel("skybox/labskyboxfull.obj");
 
 	// p = vec3(9*sin(a*t), 9, 9*cos(a*t));
-	p = vec3(20, 10, 20);
-	l = vec3(0,8,0);
+	p = vec3(0, 10, 60);
+	l = vec3(10,8,10);
 	v = vec3(0,1,0);
 	world = lookAtv(p,l,v);
 
-	total_ground = T(kGroundSize/2,0,0);
-	total_windmill = T(0, 0, -3); // change this to move the whole windmill
+	total_ground = T(0,0,0);
+	total_windmill = T(0, 0, 0); // change this to move the whole windmill
 	total = total_windmill * T(0, 9.25f, 4.5f) * Ry(-M_PI/2); //total model matrix for blades
 	total_balcony = total_windmill * Ry(-3*M_PI/2) * S(-1, 1, 1);
-	total_teapot = T(-15, 0, 0) * S(4) * Ry(-M_PI);
+	total_teapot = T(20, 0, 20);
+	
+	// Load and compile shader
+	shader = loadShaders("lab3-4a.vert", "lab3-4a.frag");
+
+	printError("init shader");
 
 	// GL inits
 	glClearColor(0.2,0.2,0.5,0);
 	glDisable(GL_DEPTH_TEST);
 	printError("GL inits");
 
-	// Load and compile shader
-	shader = loadShaders("lab3-3.vert", "lab3-3.frag");
+	glUniform3fv(glGetUniformLocation(shader, "lightSourcesDirPosArr"), 4, &lightSourcesDirectionsPositions[0].x);
 
-	printError("init shader");
+	glUniform3fv(glGetUniformLocation(shader, "lightSourcesColorArr"), 4, &lightSourcesColorsArr[0].x);
+
+	glUniform1iv(glGetUniformLocation(shader, "isDirectional"), 4, isDirectional);
+
+	
 
 	// textures
 	LoadTGATextureSimple("skybox/labSkyBoxFull.tga", &skyboxTex);
@@ -161,6 +189,7 @@ void init(void)
 void display(void)
 {
 	world = lookAtv(p,l,v);
+	glUniform3fv(glGetUniformLocation(shader, "p"), 1, &p.x);
 	printError("pre display");
 	// rotation matrix
 	GLfloat t = (GLfloat)glutGet(GLUT_ELAPSED_TIME);
@@ -186,7 +215,9 @@ void display(void)
 	glBindTexture(GL_TEXTURE_2D, skyboxTex);
 	glDisable(GL_DEPTH_TEST);
 	mat4 tmp = world;
-	
+
+	// windmill
+	glUniform1f(glGetUniformLocation(shader, "specularExponent"), specularExponent[1]);
 	tmp.m[3] = 0; tmp.m[7] = 0; tmp.m[11] = 0; // zero out translation of camera matrix
 	// printMat4(tmp);
 	glUniformMatrix4fv(glGetUniformLocation(shader, "wrlMatrix"), 1, GL_TRUE, tmp.m);
@@ -231,13 +262,14 @@ void display(void)
 	glUniformMatrix4fv(mdlLoc, 1, GL_TRUE, total_balcony.m);
 	DrawModel(m_balcony, shader, "in_Position", "in_Normal", "inTexCoord");
 	
-	// godzilla
+	// teapot
+	glUniform1f(glGetUniformLocation(shader, "specularExponent"), specularExponent[2]);
 	glUniformMatrix4fv(mdlLoc, 1, GL_TRUE, total_teapot.m);
 	DrawModel(m_teapot, shader, "in_Position", "in_Normal", "inTexCoord");
 	
 	// ground
-	
-	has_texture = 1;
+	glUniform1f(glGetUniformLocation(shader, "specularExponent"), specularExponent[0]);
+	has_texture = 0;
 	glUniform1i(glGetUniformLocation(shader, "has_texture"), has_texture);
 	glBindTexture(GL_TEXTURE_2D, groundTex);
 	glUniformMatrix4fv(mdlLoc, 1, GL_TRUE, total_ground.m);
