@@ -118,7 +118,6 @@ void init(void)
 	m_teapot = LoadModel("models/various/teapot.obj");
 	m_skybox = LoadModel("skybox/labskyboxfull.obj");
 
-	// p = vec3(9*sin(a*t), 9, 9*cos(a*t));
 	p = vec3(0, 10, 60);
 	l = vec3(10,8,10);
 	v = vec3(0,1,0);
@@ -131,7 +130,7 @@ void init(void)
 	total_teapot = T(20, 0, 20);
 	
 	// Load and compile shader
-	shader = loadShaders("lab3-4a.vert", "lab3-4a.frag");
+	shader = loadShaders("lab3-4b.vert", "lab3-4b.frag");
 
 	printError("init shader");
 
