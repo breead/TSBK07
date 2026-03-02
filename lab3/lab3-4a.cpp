@@ -118,7 +118,6 @@ void init(void)
 	m_teapot = LoadModel("models/various/teapot.obj");
 	m_skybox = LoadModel("skybox/labskyboxfull.obj");
 
-	// p = vec3(9*sin(a*t), 9, 9*cos(a*t));
 	p = vec3(0, 10, 60);
 	l = vec3(10,8,10);
 	v = vec3(0,1,0);
@@ -239,8 +238,8 @@ void display(void)
 	total = total * spin_blades;
 	for (int i = 0; i < 4; i++) {
 		mat4 offset_blades = {1.0f, 0.0f, 0.0f, 0.0f,
-		 		0.0f, cos(M_PI*i/2), -sin(M_PI*i/2), 0.0f,
-		 		0.0f, sin(M_PI*i/2), cos(M_PI*i/2), 0.0f,
+		 		0.0f, cos((float)M_PI*i/2), -sin((float)M_PI*i/2), 0.0f,
+		 		0.0f, sin((float)M_PI*i/2), cos((float)M_PI*i/2), 0.0f,
 		 		0.0f, 0.0f, 0.0f, 1.0f};
 		rotation = Rx(M_PI*i/2);
 		total = total * offset_blades;
@@ -298,26 +297,7 @@ void display(void)
 		p = p + vec3(0,0,-1);
 	}
 
-	/* 
-	if(glutKeyIsDown('a')){
-		world = world*T(1,0,0);
-	}
-	if(glutKeyIsDown('d')){
-		world = world*T(-1,0,0);
-	}
-	if(glutKeyIsDown('w')){
-		world = world* T(0,1,0);
-	}
-	if(glutKeyIsDown('s')){
-		world = world*T(0,-1,0);
-	}
-	if(glutKeyIsDown('q')){
-		world = world*T(0,0,1);
-	}
-	if(glutKeyIsDown('e')){
-		world = world*T(0,0,-1);
-	}*/
-	printError("display");
+		printError("display");
 	
 	glutSwapBuffers();
 }
