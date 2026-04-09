@@ -17,7 +17,7 @@ std::vector<Model*> m_blades;
 
 #define near 1.0
 
-#define far 100.0
+#define far 200.0
 
 #define right 0.5
 

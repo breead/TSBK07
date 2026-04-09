@@ -12,6 +12,9 @@
 // Globals
 // Data would normally be read from files
 
+// Simon Ardfors simar543
+// Linus Lundblad linlu706
+
 Model *m_blade, *m_roof, *m_wall, *m_balcony, *m_ground, *m_teapot, *m_skybox;
 std::vector<Model*> m_blades;
 

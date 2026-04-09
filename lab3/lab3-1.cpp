@@ -66,7 +66,7 @@ void init(void)
 
 	// LoadTGATextureSimple("rutor.tga", &groundTex);
 
-	total_windmill = T(0, 0, -3); // change this to move the whole windmill
+	total_windmill = T(0, 0, -10); // change this to move the whole windmill
 	total = total_windmill * T(0, 9.25f, 4.5f) * Ry(-M_PI/2); //total model matrix for blades
 	total_balcony = total_windmill * Ry(-3*M_PI/2) * S(-1, 1, 1);
 
@@ -125,9 +125,9 @@ void display(void)
 		0.0f, cos(a), -sin(a), 0.0f,
 		0.0f, sin(a), cos(a), 0.0f,
 		0.0f, 0.0f, 0.0f, 1.0f};
-	rotation_wings = Rx(a);
+	// rotation_wings = Rx(a);
 	// total = total * rotation_wings;
-	total = total * test2;
+	total = total * test2; // Rotatation animation
 	for (int i = 0; i < 4; i++) {
 		// GLfloat rotationMatrix[] = { 	1.0f, 0.0f, 0.0f, 0.0f,
 		// 		0.0f, cos(M_PI*i/2), -sin(M_PI*i/2), 0.0f,
@@ -137,7 +137,7 @@ void display(void)
 		 		0.0f, cos(M_PI*i/2), -sin(M_PI*i/2), 0.0f,
 		 		0.0f, sin(M_PI*i/2), cos(M_PI*i/2), 0.0f,
 		 		0.0f, 0.0f, 0.0f, 1.0f};
-		rotation = Rx(M_PI*i/2);
+		// rotation = Rx(M_PI*i/2);
 		total = total * test;
 
 		glUniformMatrix4fv(mdlLoc, 1, GL_TRUE, total.m);
